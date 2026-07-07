@@ -386,7 +386,31 @@ body.panel-closed #ods-logo { right: 12px; }
 }
 #zoom-slider {
   width: 110px;
-  accent-color: #2b7fff;
+  height: 4px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--c-border, #ccc);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+#zoom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--c-accent);
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, .8);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .5);
+  cursor: pointer;
+}
+#zoom-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: var(--c-accent);
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, .8);
+  cursor: pointer;
 }
 #zoom-value {
   font-size: 12px;

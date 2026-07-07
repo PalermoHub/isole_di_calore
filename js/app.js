@@ -956,9 +956,10 @@ async function main() {
     },
     center: PALERMO_CENTER,
     zoom: PALERMO_ZOOM,
+    minZoom: 10,
     maxZoom: 17,
-    hash: true,
     maxBounds: PALERMO_MAX_BOUNDS,
+    hash: true,
     attributionControl: false,
     dragRotate: false,
     touchPitch: false,
@@ -1226,33 +1227,44 @@ async function main() {
   const zoomSlider = document.getElementById("zoom-slider");
   const zoomValue = document.getElementById("zoom-value");
   const updateZoomControl = () => {
-    const z = Math.round(map.getZoom());
+    const z = map.getZoom();
     zoomSlider.value = z;
-    zoomValue.textContent = z;
-  };
-  // Zoom minimo reale imposto da maxBounds: la mappa non lascia MAI spazio vuoto
-  // fuori dai bounds, quindi serve lo zoom che copre (max tra asse x e y), non
-  // quello che contiene tutto il bounds (min tra asse x e y, cameraForBounds).
-  const boundsCoverZoom = (bounds, w, h, tileSize = 256) => {
-    const [[lon1, lat1], [lon2, lat2]] = bounds;
-    const mercY = (lat) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
-    const lonSpan = Math.abs(lon2 - lon1) / 360;
-    const latSpan = Math.abs(mercY(lat2) - mercY(lat1)) / (2 * Math.PI);
-    const zoomX = Math.log2(w / (lonSpan * tileSize));
-    const zoomY = Math.log2(h / (latSpan * tileSize));
-    return Math.max(zoomX, zoomY);
-  };
-  const syncZoomFloor = () => {
-    const el = map.getContainer();
-    const floor = boundsCoverZoom(PALERMO_MAX_BOUNDS, el.clientWidth, el.clientHeight);
-    zoomSlider.min = Math.ceil(floor);
-    updateZoomControl();
+    zoomValue.textContent = z.toFixed(1);
   };
   zoomSlider.addEventListener("input", () => map.setZoom(+zoomSlider.value));
   map.on("zoom", updateZoomControl);
-  map.on("load", syncZoomFloor);
-  map.on("resize", syncZoomFloor);
+  map.on("load", updateZoomControl);
   updateZoomControl();
+
+  // Su schermi molto grandi PALERMO_MAX_BOUNDS può essere troppo stretto per
+  // coprire il viewport allo zoom minimo (10): maplibre non lascia zoomare
+  // oltre il livello che farebbe uscire il bounds dallo schermo. Allarghiamo
+  // (mai restringiamo) i bounds attorno allo stesso centro finché lo zoom 10
+  // non risulta sempre raggiungibile, qualunque sia la dimensione finestra.
+  const mercY = (lat) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
+  const invMercY = (my) => (2 * Math.atan(Math.exp(my)) - Math.PI / 2) * (180 / Math.PI);
+  const boundsForZoom = (zoom, w, h, centerLon, centerLat, tileSize = 256) => {
+    const scale = tileSize * 2 ** zoom;
+    const lonSpan = (w / scale) * 360;
+    const latSpanMerc = (h / scale) * 2 * Math.PI;
+    const centerMercY = mercY(centerLat);
+    return [
+      [centerLon - lonSpan / 2, invMercY(centerMercY - latSpanMerc / 2)],
+      [centerLon + lonSpan / 2, invMercY(centerMercY + latSpanMerc / 2)],
+    ];
+  };
+  const syncMaxBounds = () => {
+    const el = map.getContainer();
+    const centerLon = (PALERMO_MAX_BOUNDS[0][0] + PALERMO_MAX_BOUNDS[1][0]) / 2;
+    const centerLat = (PALERMO_MAX_BOUNDS[0][1] + PALERMO_MAX_BOUNDS[1][1]) / 2;
+    const required = boundsForZoom(10, el.clientWidth, el.clientHeight, centerLon, centerLat);
+    map.setMaxBounds([
+      [Math.min(PALERMO_MAX_BOUNDS[0][0], required[0][0]), Math.min(PALERMO_MAX_BOUNDS[0][1], required[0][1])],
+      [Math.max(PALERMO_MAX_BOUNDS[1][0], required[1][0]), Math.max(PALERMO_MAX_BOUNDS[1][1], required[1][1])],
+    ]);
+  };
+  map.on("load", syncMaxBounds);
+  map.on("resize", syncMaxBounds);
 
   document.getElementById("btn-fullscreen").addEventListener("click", () => {
     if (!document.fullscreenElement) {

@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="it">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <META HTTP-EQUIV="refresh" CONTENT="3600"> 
+<title>Palermo Hub - Isole di calore urbane 2025</title>
+	    <meta name="author" content="Giovan Battista Vitrano per OpenDataSicilia.it">
+    <meta http-equiv="content-language" content="IT">
+    <meta name="robots" content="index,follow">
+    <meta name="creation_Date" content="07/07/2026">
+    <meta name="description" content="Mappa interattiva delle isole di calore urbane a Palermo: temperatura superficiale (LST) 2019-2025, analisi bivariata e isola di calore depurata dalla morfologia del territorio.">
+    <meta name="keywords" content="isole di calore, Palermo, LST, temperatura superficiale, urban heat island, clima, dati aperti, OpenDataSicilia">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
+      integrity="sha384-MinO0mNliZ3vwppuPOUnGa+iq619pfMhLVUXfC4LHwSCvF9H+6P/KO4Q7qBOYV5V" crossorigin="anonymous">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"
+        integrity="sha384-SYKAG6cglRMN0RVvhNeBY0r3FYKNOJtznwA0v7B5Vp9tr31xAHsZC0DqkQ/pZDmj" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/pmtiles@3.2.0/dist/pmtiles.js"
+        integrity="sha384-QfbOCebHNw8pQiPAOd2IFee2v2A5VYZxBk0+JGZ5H+3mfzVIp6zsQNkTsfGJot93" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/simple-statistics@7.8.3/dist/simple-statistics.min.js"
+        integrity="sha384-j4Ga4vVTRhNtxxpmW6hc+VyOHN//+8+Yk38kQuS1t74VZ36e6SkyHsm5Y75HmiNO" crossorigin="anonymous"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="shortcut icon" href="img/favicon.ico"/> 
+<link rel="icon" href="img/favicon.png" type="image/png"/> 
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-87653723-4"></script>
+    
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'UA-87653723-4');
+    </script>
+
+</head>
+<body>
+
+<div id="map"></div>
+
+<div id="map-toolbar">
+  <button id="btn-home" class="tool-btn" title="Centra su Palermo">
+    <svg viewBox="0 0 24 24"><path d="M12 3 3 10.5V21h6v-6h6v6h6V10.5z"/></svg>
+  </button>
+  <button id="btn-satellite" class="tool-btn" title="Vista satellitare">
+    <svg viewBox="0 0 24 24"><path d="M3 3l4.5 4.5M13.5 3 21 10.5m-9-3L3 16.5 7.5 21 18 10.5M8 16l-2 5"/></svg>
+  </button>
+  <button id="btn-lst-years" class="tool-btn active" title="Isole di calore per anno (2019-2025)">
+    <svg viewBox="0 0 24 24"><path d="M12 2v11.5M12 2a3 3 0 0 1 3 3v8.5a4 4 0 1 1-6 0V5a3 3 0 0 1 3-3z"/></svg>
+  </button>
+  <button id="btn-bivariate" class="tool-btn" title="Attiva/disattiva mappa bivariata">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/><rect x="13" y="13" width="8" height="8"/></svg>
+  </button>
+  <button id="btn-residui" class="tool-btn" title="Isola di calore depurata dalla morfologia (residui regressione)">
+    <svg viewBox="0 0 24 24"><path d="M4 12h4l2-7 4 14 2-7h4"/></svg>
+  </button>
+  <button id="btn-fullscreen" class="tool-btn" title="Schermo intero">
+    <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+  </button>
+  <div id="zoom-control" title="Zoom">
+    <input type="range" id="zoom-slider" min="0" max="17" step="1">
+    <span id="zoom-value">11</span>
+  </div>
+</div>
+
+<div id="year-timeline">
+  <button id="year-prev" class="tool-btn" title="Anno precedente">
+    <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+  </button>
+  <button id="year-play" class="tool-btn" title="Riproduci">
+    <svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg>
+  </button>
+  <div class="year-ticks" id="year-ticks"></div>
+  <button id="year-next" class="tool-btn" title="Anno successivo">
+    <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+  </button>
+</div>
+
+<button id="panel-toggle" title="Chiudi pannello">›</button>
+
+<div id="panel">
+  <div id="panel-resizer"></div>
+  <div id="panel-header">
+    <h1>Isole di calore urbane · Palermo</h1>
+    <p class="subtitle" id="subtitle">LST 2025 (°C) × Variazione LST 2019→2025 (°C)</p>
+
+    <div class="panel-tabs" id="panel-tabs">
+      <button class="tab-btn active" data-tab="lst-years">Isole di calore</button>
+      <button class="tab-btn" data-tab="bivariata">Bivariata</button>
+      <button class="tab-btn" data-tab="residui">Isola vera</button>
+      <button class="tab-btn" data-tab="crediti">Guida e Credits</button>
+    </div>
+  </div>
+
+  <div id="panel-content">
+  <div class="control-group">
+    <label>Livello territoriale</label>
+    <div class="level-btns" id="level-btns">
+      <button class="level-btn active" data-level="sezioni" Title="Sezioni censuarie">Sezioni<span class="level-count">2874/3600</span></button>
+	    <button class="level-btn" data-level="upl" title="Unità di primmo livello">UPL<span  class="level-count">55</span></button>
+      <button class="level-btn" data-level="quartieri" title="Quartieri">Quartieri<span class="level-count">25</span></button>
+      <button class="level-btn" data-level="circoscrizioni"title="Circoscrizioni" >Circoscrizioni<span class="level-count">8</span></button>
+
+    </div>
+  </div>
+
+  <div id="tab-lst-years" class="tab-panel">
+    <p class="subtitle" id="lst-year-subtitle">LST 2025 (°C)</p>
+    <div class="control-group">
+      <label>Metodo di classificazione</label>
+      <div class="method-btns" id="lst-method-btns">
+        <button class="method-btn active" data-method="jenks" title="Jenks (natural breaks) — rompe dove i dati hanno salti naturali">
+          <svg viewBox="0 0 32 20" class="method-icon"><rect x="1" y="10" width="4" height="9" fill="currentColor"/><rect x="6" y="6" width="4" height="13" fill="currentColor"/><rect x="11" y="12" width="4" height="7" fill="currentColor"/><rect x="16" y="3" width="4" height="16" fill="currentColor"/><rect x="21" y="8" width="4" height="11" fill="currentColor"/><rect x="26" y="14" width="4" height="5" fill="currentColor"/><line x1="9" y1="0" x2="9" y2="20" class="method-break"/><line x1="19" y1="0" x2="19" y2="20" class="method-break"/></svg>
+          <span>Jenks</span>
+        </button>
+        <button class="method-btn" data-method="quantile" title="Quantili — stesso numero di sezioni per classe">
+          <svg viewBox="0 0 32 20" class="method-icon"><rect x="1" y="10" width="4" height="9" fill="currentColor"/><rect x="6" y="6" width="4" height="13" fill="currentColor"/><rect x="11" y="12" width="4" height="7" fill="currentColor"/><rect x="16" y="3" width="4" height="16" fill="currentColor"/><rect x="21" y="8" width="4" height="11" fill="currentColor"/><rect x="26" y="14" width="4" height="5" fill="currentColor"/><line x1="7" y1="0" x2="7" y2="20" class="method-break"/><line x1="15" y1="0" x2="15" y2="20" class="method-break"/><line x1="23" y1="0" x2="23" y2="20" class="method-break"/></svg>
+          <span>Quantili</span>
+        </button>
+        <button class="method-btn" data-method="equal" title="Intervalli uguali — classi di ampiezza identica">
+          <svg viewBox="0 0 32 20" class="method-icon"><rect x="1" y="10" width="4" height="9" fill="currentColor"/><rect x="6" y="6" width="4" height="13" fill="currentColor"/><rect x="11" y="12" width="4" height="7" fill="currentColor"/><rect x="16" y="3" width="4" height="16" fill="currentColor"/><rect x="21" y="8" width="4" height="11" fill="currentColor"/><rect x="26" y="14" width="4" height="5" fill="currentColor"/><line x1="8" y1="0" x2="8" y2="20" class="method-break"/><line x1="16" y1="0" x2="16" y2="20" class="method-break"/><line x1="24" y1="0" x2="24" y2="20" class="method-break"/></svg>
+          <span>Intervalli</span>
+        </button>
+      </div>
+    </div>
+    <div class="control-group">
+      <label>Numero di classi: <span id="lst-classes-value">5</span></label>
+      <input type="range" id="lst-classes" min="3" max="9" step="1" value="5">
+    </div>
+    <div id="lst-legend"></div>
+    <div class="legend-axis-x"><span id="lst-legend-min">—</span><div class="legend-axis-x-arrow"></div><span id="lst-legend-max">—</span></div>
+    <div class="legend-nd-row"><div class="legend-nd-swatch"></div><span>Nessun dato</span></div>
+    <div id="lst-info-box">
+      <p class="hint">Clic su una sezione/quartiere per i dettagli.</p>
+    </div>
+  </div>
+
+  <div id="tab-bivariata" class="tab-panel hidden">
+    <details class="post-details">
+      <summary>Cosa incrociano i due pulsanti LTS </summary>
+      <p class="legend-def">
+        <strong>LST × Trend</strong> — incrocia la temperatura superficiale attuale
+        (LST 2025, da satellite) con quanto è <strong>cambiata dal 2019</strong> al 2025
+        nella stessa sezione. Serve a distinguere le zone già calde ma stabili dalle zone
+        che si stanno scaldando di più anno dopo anno: sono queste ultime, in alto a destra
+        nella griglia, le isole di calore in peggioramento su cui intervenire con priorità.
+      </p>
+      <p class="legend-def">
+        <strong>LST × Densità viaria</strong> — incrocia la stessa LST 2025 con la
+        <strong>densità della rete stradale</strong> (km di strada per km² di sezione,
+        calcolata dal grafo stradale). Serve a verificare quanto l'infrastruttura viaria
+        (asfalto, traffico, assenza di verde) si associa alle temperature più alte: le
+        sezioni calde e ad alta densità viaria (in alto a destra) sono i punti dove strada
+        e calore si rinforzano a vicenda.
+      </p>
+    </details>
+
+    <div class="switch-row">
+      <label class="switch">
+        <input type="checkbox" id="biv-toggle">
+        <span class="switch-slider"></span>
+      </label>
+      <span class="switch-lbl">Mostra livello bivariata LTS</span>
+    </div>
+    <div class="level-btns disabled" id="bivar-variant-btns">
+      <button class="level-btn" data-variant="trend">LST × Trend</button>
+      <button class="level-btn" data-variant="densvia">LST × Densità viaria</button>
+    </div>
+    <div id="legend">
+      <p class="legend-hint">Clic su una cella → filtra per classe</p>
+      <div class="legend-wrap">
+        <div class="legend-axis-y-wrap">
+          <span class="legend-axis-y-lbl" id="biv-axis-y-lbl">Variazione 2019→2025 (°C) ↑</span>
+          <div class="legend-axis-y-arrow"></div>
+        </div>
+        <div class="legend-inner">
+          <div class="legend-col-hdrs"><span></span><span>Bassa</span><span>Media</span><span>Alta</span></div>
+          <div class="legend-grid" id="legend-grid"></div>
+          <div class="legend-axis-x"><span id="biv-axis-x-lbl">LST 2025 (°C) →</span><div class="legend-axis-x-arrow"></div></div>
+        </div>
+      </div>
+      <div class="legend-nd-row"><div class="legend-nd-swatch"></div><span>Nessun dato</span></div>
+      <p class="legend-def" id="biv-def">
+        Ogni sezione incrocia due valori: quanto è <strong>calda ora</strong>
+        (LST 2025, asse orizzontale) e quanto si è <strong>riscaldata dal 2019</strong>
+        (variazione, asse verticale). Colori chiari = stabile e fresco; rosso scuro =
+        già caldo e in ulteriore peggioramento — le isole di calore più critiche.
+      </p>
+    </div>
+
+    <div id="info-box">
+      <p class="hint">Clic su una sezione/quartiere per i dettagli.</p>
+    </div>
+  </div>
+
+  <div id="tab-residui" class="tab-panel hidden">
+    <details class="post-details" open>
+      <summary>Isola di calore "vera" (residuo LST 2025 vs. atteso dalla morfologia)</summary>
+      <p class="legend-def">
+        Alcune zone di Palermo sono più calde di altre semplicemente perché sono più in alto,
+        più pianeggianti o più esposte al sole: sono differenze naturali, dovute al territorio,
+        non alla città costruita sopra.
+      </p>
+      <p class="legend-def">
+        Questa mappa toglie quella parte "naturale" e mostra solo quello che resta: il calore
+        in più (o in meno) causato dalle scelte umane — asfalto, cemento, densità di strade,
+        mancanza di verde e ombra. È la parte di isola di calore su cui, in teoria, si può
+        intervenire.
+      </p>
+      <p class="legend-def">
+        <strong>Come è calcolato:</strong> per ogni sezione della città abbiamo confrontato la
+        temperatura reale misurata da satellite (LST 2025) con la temperatura "attesa" in base a
+        quota, pendenza, quanto cielo si vede dall'alto, orientamento del terreno e densità delle
+        strade. Quest'ultima conta doppio: una strada trafficata scalda molto di più se si trova
+        anche in un "canyon urbano" con poco cielo visibile (centro storico), mentre in una zona
+        aperta lo stesso traffico ha un effetto più contenuto. La differenza tra temperatura
+        reale e attesa è il <strong>residuo</strong>: rosso vuol dire più caldo di quanto il
+        territorio giustificherebbe, blu vuol dire più fresco.
+      </p>
+      <p class="legend-def">
+        <strong>A cosa serve:</strong> aiuta a distinguere zone calde "per natura" da zone calde
+        per come sono costruite — utili, queste ultime, per capire dove piantare alberi, creare
+        ombra o superfici più fresche darebbe più beneficio.
+      </p>
+      <p class="legend-def">
+        <strong>I colori:</strong> vanno dal <strong style="color:#2166ac">blu scuro</strong> (sezione
+        molto più fresca del previsto, fino a 10 °C in meno) al <strong style="color:#b2182b">rosso
+        scuro</strong> (molto più calda del previsto, fino a 10 °C in più), passando per il
+        <strong>bianco/grigio chiaro</strong> al centro, che vuol dire "come previsto dal
+        territorio" (differenza vicina a zero). Il <strong style="color:#999">grigio pieno</strong>
+        indica una sezione "Fuori regressione": troppo piccola o senza dati sufficienti per essere
+        confrontata.
+      </p>
+    </details>
+
+    <details class="post-details" open>
+      <summary>Dettagli tecnici</summary>
+      <div id="residui-legend"></div>
+      <div class="legend-axis-x"><span id="residui-legend-min">—</span><div class="legend-axis-x-arrow"></div><span id="residui-legend-max">—</span></div>
+      <div class="legend-nd-row"><div class="legend-nd-swatch"></div><span>Fuori regressione</span></div>
+      <p class="legend-def">
+        Regressione OLS: <code>LST ~ quota + pendenza + SVF + aspetto + densità viaria + densità viaria × SVF</code>
+        (R² <span id="residui-r2">—</span>, n=<span id="residui-n">—</span>). Il residuo è quanto una sezione è
+        <strong>più calda</strong> (rosso) o <strong>più fresca</strong> (blu) di quanto la sua sola morfologia
+        farebbe prevedere — isola la componente antropica dal segnale di quota/esposizione naturale.
+      </p>
+    </details>
+
+    <div id="residui-info-box">
+      <p class="hint">Clic su una sezione per i dettagli.</p>
+    </div>
+  </div>
+
+  <div id="tab-crediti" class="tab-panel hidden">
+    <details class="post-details" open>
+      <summary>Cos'è questa app</summary>
+      <p class="legend-def">
+        Questa mappa mostra <strong>dove fa più caldo a Palermo</strong> in estate,
+        sezione censuaria per sezione censuaria, usando immagini satellitari della
+        temperatura superficiale (LST, "Land Surface Temperature"). Puoi cambiare il
+        livello territoriale (Sezioni, UPL, Quartieri, Circoscrizioni) e passare tra le
+        diverse mappe con le schede qui sopra.
+      </p>
+    </details>
+
+    <details class="post-details" open>
+      <summary>Le icone della barra strumenti</summary>
+      <ul class="guide-icon-list">
+        <li>
+          <svg viewBox="0 0 24 24"><path d="M12 3 3 10.5V21h6v-6h6v6h6V10.5z"/></svg>
+          <span><strong>Casetta</strong> — riporta la mappa al centro su Palermo, zoom iniziale.</span>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24"><path d="M3 3l4.5 4.5M13.5 3 21 10.5m-9-3L3 16.5 7.5 21 18 10.5M8 16l-2 5"/></svg>
+          <span><strong>Satellite</strong> — mostra/nasconde la vista satellitare come sfondo, al posto della mappa stradale.</span>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24"><path d="M12 2v11.5M12 2a3 3 0 0 1 3 3v8.5a4 4 0 1 1-6 0V5a3 3 0 0 1 3-3z"/></svg>
+          <span><strong>Termometro</strong> — attiva la scheda "Isole di calore", la mappa LST per anno (2019-2025).</span>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/><rect x="13" y="13" width="8" height="8"/></svg>
+          <span><strong>Quattro quadrati</strong> — attiva/disattiva la mappa "Bivariata", che incrocia due variabili insieme.</span>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24"><path d="M4 12h4l2-7 4 14 2-7h4"/></svg>
+          <span><strong>Onda/impulso</strong> — attiva la scheda "Isola vera", il residuo tra calore reale e calore atteso dal territorio.</span>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9l-2 6-6 2 2-6z"/></svg>
+          <span><strong>Bussola</strong> — reimposta l'orientamento della mappa (nord in alto).</span>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+          <span><strong>Schermo intero</strong> — espande la mappa a tutto schermo.</span>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" style="stroke-width:2.4"><line x1="4" y1="12" x2="20" y2="12"/><circle cx="14" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg>
+          <span><strong>Cursore zoom</strong> — controlla il livello di ingrandimento della mappa.</span>
+        </li>
+      </ul>
+    </details>
+
+    <details class="post-details" open>
+      <summary>Metodi di classificazione e numero di classi</summary>
+      <p class="legend-def">
+        Nella scheda "Isole di calore" puoi scegliere <strong>come i valori di
+        temperatura vengono divisi in classi di colore</strong>:
+      </p>
+      <ul class="legend-def" style="padding-left:18px; margin:0;">
+        <li><strong>Jenks (salti naturali)</strong> — i confini tra le classi vengono messi dove i dati hanno "salti" naturali, così ogni classe raggruppa sezioni davvero simili tra loro. È il metodo più fedele ai dati reali.</li>
+        <li><strong>Quantili</strong> — ogni classe contiene lo stesso numero di sezioni. Utile per vedere subito quali sono le sezioni più calde in assoluto, indipendentemente da quanto sono diffuse.</li>
+        <li><strong>Intervalli uguali</strong> — la differenza tra il valore minimo e massimo viene divisa in fette di ampiezza identica (es. classi ogni 2°C). Utile per confrontare direttamente le temperature in gradi.</li>
+      </ul>
+      <p class="legend-def">
+        Il cursore <strong>"Numero di classi"</strong> (da 3 a 9) decide in quanti gruppi
+        di colore viene divisa la mappa: poche classi (3-4) danno una lettura più semplice
+        e immediata, molte classi (7-9) mostrano più sfumature ma la mappa diventa più
+        difficile da leggere a colpo d'occhio.
+      </p>
+    </details>
+
+    <details class="post-details" open>
+      <summary>Cos'è l'"Isola vera"</summary>
+      <p class="legend-def">
+        La scheda "Isola vera" toglie dalla temperatura misurata la parte dovuta al
+        territorio (quota, pendenza, esposizione al sole) e mostra solo il calore in più
+        o in meno causato dalla città costruita — asfalto, cemento, densità di strade,
+        mancanza di verde. Rosso = più caldo di quanto il territorio giustificherebbe;
+        blu = più fresco. Vedi i dettagli nella scheda stessa.
+      </p>
+    </details>
+
+    <details class="post-details" open>
+      <summary>Fonti e ispirazione</summary>
+      <p class="legend-def">
+        <strong>Fonte dati:</strong><br> <a href="https://www.usgs.gov/landsat-missions/landsat-science-products" target="_blank" rel="noopener">Landsat Science Products</a> (USGS)
+      </p>
+      <p class="legend-def">
+        <strong>Ispirazione:</strong><br>
+        <a href="https://www.greenpeace.org/italy/comunicato-stampa/31174/" target="_blank" rel="noopener">Rapporto Greenpeace - Caldo estremo</a> — giornate forte stress da calore passate dal 39% al 62%
+      </p>
+      <p class="legend-def">
+        <a href="https://cimbelli.github.io/lst-viewer/" target="_blank" rel="noopener">Mappa interattiva della temperatura superficiale estiva</a> di <a href="https://www.linkedin.com/in/alessandro-cimbelli" target="_blank" rel="noopener">Alessandro Cimbelli</a>
+      </p>
+    </details>
+   <details class="post-details" open>
+      <summary>Strumenti usati</summary>
+      <ul class="legend-def" style="padding-left:18px; margin:0;">
+        <li><a href="https://maplibre.org/maplibre-gl-js/docs/" target="_blank" rel="noopener">MapLibre GL JS</a> — motore mappa interattiva</li>
+        <li><a href="https://github.com/protomaps/PMTiles" target="_blank" rel="noopener">PMTiles</a> + <a href="https://github.com/felt/tippecanoe" target="_blank" rel="noopener">Tippecanoe</a> — creazione ed erogazione dei tile vettoriali</li>
+        <li><a href="https://qgis.org/" target="_blank" rel="noopener">QGIS</a> — analisi geospaziale e statistiche zonali (DTM, viabilità)</li>
+        <li>Python (GDAL/rasterio/pandas) — elaborazione dati LST e derivate DTM, regressione OLS</li>
+        <li><a href="https://simplestatistics.org/" target="_blank" rel="noopener">Simple Statistics</a> — classificazione Jenks/quantili lato browser</li>
+      </ul>
+    </details>
+
+    <details class="post-details" open>
+      <summary>Licenza</summary>
+      <p class="legend-def">
+        I contenuti di questa applicazione sono rilasciati sotto licenza
+        <a href="https://creativecommons.org/licenses/by/4.0/deed.it" target="_blank" rel="noopener">CC BY 4.0 – Attribuzione 4.0 Internazionale</a>.
+        Sei libero di condividere e adattare il materiale per qualsiasi scopo, anche
+        commerciale, a condizione di citare adeguatamente la fonte.
+      </p>
+    </details>
+
+    <details class="post-details" open>
+      <summary>Sviluppo</summary>
+      <p class="legend-def">
+        Web app progettata e sviluppata da <a href="https://www.linkedin.com/in/gbvitrano/" target="_blank" rel="noopener" class="mi-link">@gbvitrano</a>
+        in collaborazione con <a href="https://claude.ai" target="_blank" rel="noopener" class="mi-link">Claude AI (Anthropic)</a>
+        che ha affiancato le scelte architetturali, l'ottimizzazione del codice e lo sviluppo
+        delle funzionalità di visualizzazione geospaziale.
+      </p>
+    </details>
+  </div>
+  </div>
+</div>
+
+<a id="ods-logo" href="https://opendatasicilia.it/" target="_blank" rel="noopener" title="OpenDataSicilia">
+  <img src="img/opendatasicilia.png" alt="OpenDataSicilia">
+</a>
+
+<div id="geo-search-area">
+  <div id="geo-search-chip"></div>
+  <div id="geo-search-bar">
+    <span class="geo-search-icon">
+      <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+        <path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+      </svg>
+    </span>
+    <input type="text" id="geo-search-input"
+           placeholder="Cerca circoscrizione, quartiere, UPL…"
+           autocomplete="off">
+    <button id="geo-search-clear" style="display:none">&#x2715;</button>
+  </div>
+  <div id="geo-search-dd"></div>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>

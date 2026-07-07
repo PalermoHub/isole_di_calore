@@ -921,6 +921,10 @@ async function main() {
 
   const PALERMO_CENTER = [13.353, 38.135];
   const PALERMO_ZOOM = 11;
+  const PALERMO_MAX_BOUNDS = [
+    [13.15, 38.02],
+    [13.48, 38.27],
+  ];
 
   let darkTheme = isDarkTheme();
   applyThemeAttr(darkTheme);
@@ -954,10 +958,7 @@ async function main() {
     zoom: PALERMO_ZOOM,
     maxZoom: 17,
     hash: true,
-    maxBounds: [
-      [13.15, 38.02],
-      [13.48, 38.27],
-    ],
+    maxBounds: PALERMO_MAX_BOUNDS,
     attributionControl: false,
     dragRotate: false,
     touchPitch: false,
@@ -1229,8 +1230,28 @@ async function main() {
     zoomSlider.value = z;
     zoomValue.textContent = z;
   };
+  // Zoom minimo reale imposto da maxBounds: la mappa non lascia MAI spazio vuoto
+  // fuori dai bounds, quindi serve lo zoom che copre (max tra asse x e y), non
+  // quello che contiene tutto il bounds (min tra asse x e y, cameraForBounds).
+  const boundsCoverZoom = (bounds, w, h, tileSize = 256) => {
+    const [[lon1, lat1], [lon2, lat2]] = bounds;
+    const mercY = (lat) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
+    const lonSpan = Math.abs(lon2 - lon1) / 360;
+    const latSpan = Math.abs(mercY(lat2) - mercY(lat1)) / (2 * Math.PI);
+    const zoomX = Math.log2(w / (lonSpan * tileSize));
+    const zoomY = Math.log2(h / (latSpan * tileSize));
+    return Math.max(zoomX, zoomY);
+  };
+  const syncZoomFloor = () => {
+    const el = map.getContainer();
+    const floor = boundsCoverZoom(PALERMO_MAX_BOUNDS, el.clientWidth, el.clientHeight);
+    zoomSlider.min = Math.ceil(floor);
+    updateZoomControl();
+  };
   zoomSlider.addEventListener("input", () => map.setZoom(+zoomSlider.value));
   map.on("zoom", updateZoomControl);
+  map.on("load", syncZoomFloor);
+  map.on("resize", syncZoomFloor);
   updateZoomControl();
 
   document.getElementById("btn-fullscreen").addEventListener("click", () => {

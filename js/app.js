@@ -16,6 +16,31 @@ const GEO_SEARCH_URL = "dati/geo_search.json";
 
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+// --- Tema chiaro/scuro ---
+const THEME_KEY = "sup_temp_estiva_theme";
+const BASEMAP_TILES = {
+  light: [
+    "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+    "https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+    "https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+  ],
+  dark: [
+    "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+    "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+    "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+  ],
+};
+function isDarkTheme() {
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved) return saved === "dark";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+function applyThemeAttr(dark) {
+  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+  const btn = document.getElementById("btn-theme");
+  if (btn) btn.classList.toggle("active", dark);
+}
+
 // scala divergente (blu = piu' fresco dell'atteso, rosso = piu' caldo dell'atteso), centrata su 0
 const RESIDUI_BREAKS = [-10, -5, -2, -0.5, 0.5, 2, 5, 10];
 const RESIDUI_COLORS = ["#2166ac", "#67a9cf", "#d1e5f0", "#f7f7f7", "#fddbc7", "#ef8a62", "#b2182b"];
@@ -897,6 +922,9 @@ async function main() {
   const PALERMO_CENTER = [13.353, 38.135];
   const PALERMO_ZOOM = 11;
 
+  let darkTheme = isDarkTheme();
+  applyThemeAttr(darkTheme);
+
   const map = new maplibregl.Map({
     container: "map",
     style: {
@@ -904,11 +932,7 @@ async function main() {
       sources: {
         osm: {
           type: "raster",
-          tiles: [
-            "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-            "https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-            "https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-          ],
+          tiles: darkTheme ? BASEMAP_TILES.dark : BASEMAP_TILES.light,
           tileSize: 256,
           attribution: "© OpenStreetMap contributors © CARTO",
         },
@@ -1218,6 +1242,28 @@ async function main() {
   });
   document.addEventListener("fullscreenchange", () => {
     document.getElementById("btn-fullscreen").classList.toggle("active", !!document.fullscreenElement);
+  });
+
+  document.getElementById("btn-theme").addEventListener("click", () => {
+    darkTheme = !darkTheme;
+    localStorage.setItem(THEME_KEY, darkTheme ? "dark" : "light");
+    applyThemeAttr(darkTheme);
+    const tiles = darkTheme ? BASEMAP_TILES.dark : BASEMAP_TILES.light;
+    const osmSource = map.getSource("osm");
+    if (osmSource && typeof osmSource.setTiles === "function") {
+      osmSource.setTiles(tiles);
+    } else if (osmSource) {
+      const wasVisible = map.getLayoutProperty("osm", "visibility");
+      map.removeLayer("osm");
+      map.removeSource("osm");
+      map.addSource("osm", {
+        type: "raster",
+        tiles,
+        tileSize: 256,
+        attribution: "© OpenStreetMap contributors © CARTO",
+      });
+      map.addLayer({ id: "osm", type: "raster", source: "osm", layout: { visibility: wasVisible || "visible" } }, "satellite");
+    }
   });
 
   const panelEl = document.getElementById("panel");

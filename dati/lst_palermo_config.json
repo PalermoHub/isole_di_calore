@@ -1,0 +1,25 @@
+{
+  "map_id": "lst_palermo",
+  "title": "LST 2025 (°C) × Variazione LST 2019→2025 (°C) · Palermo",
+  "label_x": "LST 2025 (°C)",
+  "label_y": "Variazione LST 2019→2025 (°C)",
+  "var_x": "LST_2025",
+  "var_y": "lst_trend",
+  "agg_method": "mean",
+  "dens_breaks": [
+    0.01,
+    0.21,
+    0.39,
+    0.51,
+    0.65,
+    0.81,
+    1.02,
+    1.23,
+    1.44,
+    1.6,
+    3.4
+  ],
+  "pmtiles_sezioni": "pmtiles://dati/geo/sezioni_lst_palermo.pmtiles",
+  "pmtiles_aggregati": "pmtiles://dati/geo/aggregati_lst_palermo.pmtiles",
+  "stats_file": "dati/lst_palermo_stats.json"
+}

@@ -1,0 +1,25 @@
+{
+  "map_id": "lst_densvia",
+  "title": "LST 2025 (°C) × Densità viaria (km/km²) · Palermo",
+  "label_x": "LST 2025 (°C)",
+  "label_y": "Densità viaria (km/km²)",
+  "var_x": "LST_2025",
+  "var_y": "densita_viaria_km_kmq",
+  "agg_method": "mean",
+  "dens_breaks": [
+    0.01,
+    6.0,
+    10.21,
+    13.89,
+    17.55,
+    21.4,
+    26.03,
+    31.17,
+    37.99,
+    53.5,
+    152.4
+  ],
+  "pmtiles_sezioni": "pmtiles://dati/geo/sezioni_lst_densvia.pmtiles",
+  "pmtiles_aggregati": "pmtiles://dati/geo/aggregati_lst_densvia.pmtiles",
+  "stats_file": "dati/lst_densvia_stats.json"
+}

@@ -141,6 +141,13 @@
         <span>→</span>
         <select id="compare-year-b"></select>
       </div>
+      <div class="switch-row hidden" id="delta-toggle-row">
+        <label class="switch">
+          <input type="checkbox" id="delta-toggle">
+          <span class="switch-slider"></span>
+        </label>
+        <span class="switch-lbl">Evidenzia variazioni (Δ)</span>
+      </div>
     </div>
     <div class="control-group" id="lst-method-group">
       <label>Metodo di classificazione</label>
@@ -163,9 +170,15 @@
       <label>Numero di classi: <span id="lst-classes-value">5</span></label>
       <input type="range" id="lst-classes" min="3" max="9" step="1" value="5">
     </div>
-    <div id="lst-legend"></div>
-    <div class="legend-axis-x"><span id="lst-legend-min">—</span><div class="legend-axis-x-arrow"></div><span id="lst-legend-max">—</span></div>
-    <div class="legend-nd-row"><div class="legend-nd-swatch"></div><span>Nessun dato</span></div>
+    <div id="lst-legend-wrap">
+      <div id="lst-legend"></div>
+      <div class="legend-axis-x"><span id="lst-legend-min">—</span><div class="legend-axis-x-arrow"></div><span id="lst-legend-max">—</span></div>
+      <div class="legend-nd-row"><div class="legend-nd-swatch"></div><span>Nessun dato</span></div>
+    </div>
+    <div id="delta-legend-wrap" class="hidden">
+      <div id="delta-legend"></div>
+      <div class="legend-axis-x"><span id="delta-legend-min">—</span><div class="legend-axis-x-arrow"></div><span id="delta-legend-max">—</span></div>
+    </div>
     <div id="lst-info-box">
       <p class="hint">Clic su una sezione/quartiere per i dettagli.</p>
     </div>

@@ -45,6 +45,10 @@ function applyThemeAttr(dark) {
 const RESIDUI_BREAKS = [-10, -5, -2, -0.5, 0.5, 2, 5, 10];
 const RESIDUI_COLORS = ["#2166ac", "#67a9cf", "#d1e5f0", "#f7f7f7", "#fddbc7", "#ef8a62", "#b2182b"];
 
+// scala divergente per il confronto anni (blu = raffreddato, rosso = riscaldato)
+const DELTA_BREAKS = [-6, -3, -1, 0, 1, 3, 6];
+const DELTA_COLORS = ["#2166ac", "#67a9cf", "#d1e5f0", "#fddbc7", "#ef8a62", "#b2182b"];
+
 // giallo→arancio→rosso (x: LST 2025) incrociato con chiaro→scuro (y: trend 2019→2025)
 const PAL = {
   "1-1": "#efe5b3", "2-1": "#efcfb3", "3-1": "#efb7b3",
@@ -187,6 +191,34 @@ function renderResiduiLegend(activeIdx) {
   }
   document.getElementById("residui-legend-min").textContent = "più fresco →";
   document.getElementById("residui-legend-max").textContent = "→ più caldo";
+}
+
+function deltaColorExpression(fieldA, fieldB) {
+  const diffExpr = ["-", ["get", fieldB], ["get", fieldA]];
+  const stepArgs = [];
+  for (let i = 1; i < DELTA_BREAKS.length - 1; i++) {
+    stepArgs.push(DELTA_BREAKS[i], DELTA_COLORS[i]);
+  }
+  return [
+    "case",
+    ["any", ["==", ["get", fieldA], null], ["==", ["get", fieldB], null]],
+    NO_DATA_COLOR,
+    ["step", diffExpr, DELTA_COLORS[0], ...stepArgs],
+  ];
+}
+
+function renderDeltaLegend() {
+  const wrap = document.getElementById("delta-legend");
+  wrap.innerHTML = "";
+  for (let i = 0; i < DELTA_COLORS.length; i++) {
+    const sw = document.createElement("div");
+    sw.className = "lst-legend-swatch";
+    sw.style.background = DELTA_COLORS[i];
+    sw.title = `${DELTA_BREAKS[i]} – ${DELTA_BREAKS[i + 1]} °C`;
+    wrap.appendChild(sw);
+  }
+  document.getElementById("delta-legend-min").textContent = "raffreddato →";
+  document.getElementById("delta-legend-max").textContent = "→ riscaldato";
 }
 
 function showResiduiInfo(props) {
@@ -991,6 +1023,7 @@ async function main() {
   let mapB = null;
   let mapAReady = false;
   let mapBReady = false;
+  let deltaMode = false;
   const layerOpacity = {
     "lst-years": 85,
     "bivariate-trend": 85,
@@ -1083,6 +1116,7 @@ async function main() {
     if (key === "compare") {
       if (mapA && mapA.getLayer("compare-fill")) mapA.setPaintProperty("compare-fill", "fill-opacity", val);
       if (mapB && mapB.getLayer("compare-fill")) mapB.setPaintProperty("compare-fill", "fill-opacity", val);
+      if (mapB && mapB.getLayer("delta-fill")) mapB.setPaintProperty("delta-fill", "fill-opacity", val);
     } else {
       for (const id of FILL_LAYER_IDS[key]) {
         if (map.getLayer(id)) map.setPaintProperty(id, "fill-opacity", val);
@@ -1150,6 +1184,10 @@ async function main() {
       if (mapA.getLayer(suf)) mapA.setFilter(suf, filterA);
       if (mapB.getLayer(suf)) mapB.setFilter(suf, filterB);
     }
+    const deltaFilter = combineFilters([geoCond]);
+    for (const suf of ["delta-fill", "delta-line"]) {
+      if (mapB.getLayer(suf)) mapB.setFilter(suf, deltaFilter);
+    }
   }
 
   function compareSourceFor(level) {
@@ -1178,12 +1216,32 @@ async function main() {
         paint: { "line-color": "#ffffff", "line-width": currentLevel === "sezioni" ? 0.3 : 0.6 },
       });
     }
+    if (mapB.getLayer("delta-fill")) mapB.removeLayer("delta-fill");
+    if (mapB.getLayer("delta-line")) mapB.removeLayer("delta-line");
+    mapB.addLayer({
+      id: "delta-fill",
+      type: "fill",
+      source: sourceId,
+      "source-layer": currentLevel,
+      paint: { "fill-color": deltaColorExpression(`LST_${compareYearA}`, `LST_${compareYearB}`), "fill-opacity": 0.85 },
+    });
+    mapB.addLayer({
+      id: "delta-line",
+      type: "line",
+      source: sourceId,
+      "source-layer": currentLevel,
+      paint: { "line-color": "#ffffff", "line-width": currentLevel === "sezioni" ? 0.3 : 0.6 },
+    });
     currentLstBreaks = breaks;
     renderLstLegend(breaks, colors, activeLstClassIdx);
-    document.getElementById("lst-year-subtitle").textContent = `LST ${compareYearA} vs ${compareYearB} (°C) — scala condivisa`;
+    document.getElementById("lst-year-subtitle").textContent = deltaMode
+      ? `${compareYearA} (riferimento) → variazione fino al ${compareYearB} (°C)`
+      : `LST ${compareYearA} vs ${compareYearB} (°C) — scala condivisa`;
     document.getElementById("compare-label-a").textContent = compareYearA;
     document.getElementById("compare-label-b").textContent = compareYearB;
     applyCompareFilter();
+    applyDeltaVisibility();
+    if (deltaMode) renderDeltaLegend();
     applyFillOpacity();
   }
 
@@ -1297,8 +1355,13 @@ async function main() {
   function setCompareMode(enabled) {
     compareMode = enabled;
     document.getElementById("compare-year-row").classList.toggle("hidden", !enabled);
+    document.getElementById("delta-toggle-row").classList.toggle("hidden", !enabled);
     document.getElementById("lst-method-group").classList.toggle("hidden", enabled);
     document.getElementById("lst-classes-group").classList.toggle("hidden", enabled);
+    if (!enabled) {
+      document.getElementById("delta-toggle").checked = false;
+      setDeltaMode(false);
+    }
     document.getElementById("year-timeline").classList.toggle("hidden", enabled || activeOverlay !== "lst-years");
     document.getElementById("map-compare").classList.toggle("hidden", !enabled);
     document.getElementById("map").classList.toggle("hidden", enabled);
@@ -1319,6 +1382,28 @@ async function main() {
       requestAnimationFrame(() => map.resize());
       updateLstColors();
     }
+    showLstInfo(null);
+  }
+
+  function applyDeltaVisibility() {
+    // mapA (sinistra) resta sempre sul colore per-anno normale, invariato;
+    // solo mapB (destra) si accende con l'evidenziazione delta.
+    if (!mapB) return;
+    if (mapB.getLayer("compare-fill")) mapB.setLayoutProperty("compare-fill", "visibility", deltaMode ? "none" : "visible");
+    if (mapB.getLayer("compare-line")) mapB.setLayoutProperty("compare-line", "visibility", deltaMode ? "none" : "visible");
+    if (mapB.getLayer("delta-fill")) mapB.setLayoutProperty("delta-fill", "visibility", deltaMode ? "visible" : "none");
+    if (mapB.getLayer("delta-line")) mapB.setLayoutProperty("delta-line", "visibility", deltaMode ? "visible" : "none");
+  }
+
+  function setDeltaMode(enabled) {
+    deltaMode = enabled;
+    document.getElementById("lst-legend-wrap").classList.toggle("hidden", enabled);
+    document.getElementById("delta-legend-wrap").classList.toggle("hidden", !enabled);
+    document.getElementById("lst-year-subtitle").textContent = enabled
+      ? `ΔLST ${compareYearA}→${compareYearB} (°C) — variazione`
+      : `LST ${compareYearA} vs ${compareYearB} (°C) — scala condivisa`;
+    applyDeltaVisibility();
+    if (enabled) renderDeltaLegend();
     showLstInfo(null);
   }
 
@@ -1395,6 +1480,7 @@ async function main() {
     compareYearBSelect.appendChild(optB);
   }
   document.getElementById("compare-toggle").addEventListener("change", (e) => setCompareMode(e.target.checked));
+  document.getElementById("delta-toggle").addEventListener("change", (e) => setDeltaMode(e.target.checked));
   compareYearASelect.addEventListener("change", (e) => {
     compareYearA = Number(e.target.value);
     updateCompareLayers();

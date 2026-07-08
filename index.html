@@ -346,6 +346,20 @@
         blu = più fresco. Vedi i dettagli nella scheda stessa.
       </p>
     </details>
+
+    <details class="post-details" open>
+      <summary>Limiti e cosa questa mappa non misura</summary>
+      <p class="legend-def">
+        Come ogni modello, anche questa mappa semplifica la realtà. Prima di
+        trarre conclusioni è utile conoscerne i limiti principali:
+      </p>
+      <ul class="legend-def" style="padding-left:18px; margin:0;">
+        <li><strong>Staticità geometrica</strong> — i confini di sezioni, quartieri, UPL e circoscrizioni sono quelli del censimento ISTAT 2011: non riflettono eventuali nuove edificazioni, cambi di destinazione d'uso del suolo o variazioni amministrative successive.</li>
+        <li><strong>Natura statistica, non fisica, del residuo</strong> — la mappa "Isola vera" mostra un residuo di una regressione OLS (LST spiegata da quota, pendenza, esposizione e densità stradale): è uno scarto statistico tra valore osservato e valore atteso dal modello, non una misura fisica diretta dell'energia termica trattenuta dalla città. Un residuo alto non prova un meccanismo causale, ne segnala una correlazione anomala rispetto al modello.</li>
+        <li><strong>Risoluzione temporale annuale</strong> — i valori LST sono compositi annuali (media/estremo su una stagione estiva), non dati stagionali o giornalieri. La mappa non cattura la variabilità infra-stagionale, gli effetti di singole ondate di calore o le differenze giorno/notte.</li>
+        <li><strong>Limiti della correzione morfologica</strong> — il modello DTM a 5 m e le variabili di viabilità usate per "spiegare" la temperatura non includono materiali di superficie, copertura arborea puntuale, ombreggiamento da edifici o microclimi locali: la correzione riduce ma non elimina l'effetto del territorio, e il residuo può ancora contenere quota di variabilità non catturata dal modello (R² ≈ 0.22).</li>
+      </ul>
+    </details>
 <hr>
     <details class="post-details" open>
       <summary>Fonti e ispirazione</summary>

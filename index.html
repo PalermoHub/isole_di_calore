@@ -46,6 +46,11 @@
   <div id="map-tooltip" class="map-tooltip"></div>
 </div>
 
+<div id="map-compare" class="hidden">
+  <div id="map-a"><div class="compare-map-label" id="compare-label-a">2019</div></div>
+  <div id="map-b"><div class="compare-map-label" id="compare-label-b">2025</div></div>
+</div>
+
 <div id="map-toolbar">
   <button id="btn-home" class="tool-btn" title="Centra su Palermo">
     <svg viewBox="0 0 24 24"><path d="M12 3 3 10.5V21h6v-6h6v6h6V10.5z"/></svg>
@@ -116,9 +121,28 @@
     </div>
   </div>
 
+  <div class="control-group">
+    <label>Trasparenza riempimento: <span id="fill-opacity-value">85%</span></label>
+    <input type="range" id="fill-opacity-slider" min="0" max="100" step="5" value="85">
+  </div>
+
   <div id="tab-lst-years" class="tab-panel">
     <p class="subtitle" id="lst-year-subtitle">LST 2025 (°C)</p>
     <div class="control-group">
+      <div class="switch-row">
+        <label class="switch">
+          <input type="checkbox" id="compare-toggle">
+          <span class="switch-slider"></span>
+        </label>
+        <span class="switch-lbl">Confronta due anni (Δ LST)</span>
+      </div>
+      <div id="compare-year-row" class="hidden">
+        <select id="compare-year-a"></select>
+        <span>→</span>
+        <select id="compare-year-b"></select>
+      </div>
+    </div>
+    <div class="control-group" id="lst-method-group">
       <label>Metodo di classificazione</label>
       <div class="method-btns" id="lst-method-btns">
         <button class="method-btn active" data-method="jenks" title="Jenks (natural breaks) — rompe dove i dati hanno salti naturali">
@@ -135,7 +159,7 @@
         </button>
       </div>
     </div>
-    <div class="control-group">
+    <div class="control-group" id="lst-classes-group">
       <label>Numero di classi: <span id="lst-classes-value">5</span></label>
       <input type="range" id="lst-classes" min="3" max="9" step="1" value="5">
     </div>

@@ -984,6 +984,26 @@ async function main() {
   let activeLstClassIdx = null;
   let currentLstBreaks = null;
   let activeResiduiClassIdx = null;
+  let compareMode = false;
+  let compareYearA = 2019;
+  let compareYearB = 2025;
+  let mapA = null;
+  let mapB = null;
+  let mapAReady = false;
+  let mapBReady = false;
+  const layerOpacity = {
+    "lst-years": 85,
+    "bivariate-trend": 85,
+    "bivariate-densvia": 85,
+    "residui": 85,
+    "compare": 85,
+  };
+  const FILL_LAYER_IDS = {
+    "lst-years": ALL_LEVELS.map((l) => `${l}-fill-year`),
+    "bivariate-trend": ALL_LEVELS.map((l) => `${l}-fill`),
+    "bivariate-densvia": ALL_LEVELS.map((l) => `${l}-fill-densvia`),
+    "residui": ["sezioni-fill-residui"],
+  };
 
   function applyBivFilter() {
     const suffix = bivariateVariant === "densvia" ? "-densvia" : "";
@@ -1047,6 +1067,31 @@ async function main() {
     const residuiVis = activeOverlay === "residui" ? "visible" : "none";
     if (map.getLayer("sezioni-fill-residui")) map.setLayoutProperty("sezioni-fill-residui", "visibility", residuiVis);
     if (map.getLayer("sezioni-line-residui")) map.setLayoutProperty("sezioni-line-residui", "visibility", residuiVis);
+    applyFillOpacity();
+  }
+
+  function activeOpacityKey() {
+    if (compareMode) return "compare";
+    if (activeOverlay === "bivariate") return bivariateVariant === "densvia" ? "bivariate-densvia" : "bivariate-trend";
+    if (activeOverlay === "residui") return "residui";
+    return "lst-years";
+  }
+
+  function applyFillOpacity() {
+    const key = activeOpacityKey();
+    const val = layerOpacity[key] / 100;
+    if (key === "compare") {
+      if (mapA && mapA.getLayer("compare-fill")) mapA.setPaintProperty("compare-fill", "fill-opacity", val);
+      if (mapB && mapB.getLayer("compare-fill")) mapB.setPaintProperty("compare-fill", "fill-opacity", val);
+    } else {
+      for (const id of FILL_LAYER_IDS[key]) {
+        if (map.getLayer(id)) map.setPaintProperty(id, "fill-opacity", val);
+      }
+    }
+    const slider = document.getElementById("fill-opacity-slider");
+    const label = document.getElementById("fill-opacity-value");
+    if (slider) slider.value = layerOpacity[key];
+    if (label) label.textContent = `${layerOpacity[key]}%`;
   }
 
   function setBivariateVariant(variant) {
@@ -1079,9 +1124,138 @@ async function main() {
     Object.values(bivCells).forEach((c) => c.classList.remove("active"));
     applyBivFilter();
     applyLstFilter();
-    if (activeOverlay === "lst-years") updateLstColors();
+    if (activeOverlay === "lst-years") {
+      if (compareMode) updateCompareLayers();
+      else updateLstColors();
+    }
     showInfo(null);
     showLstInfo(null);
+  }
+
+  function computeSharedBreaksColors(level, yearA, yearB) {
+    const valuesA = yearStats.values[level][String(yearA)] || [];
+    const valuesB = yearStats.values[level][String(yearB)] || [];
+    const combined = valuesA.concat(valuesB);
+    const breaks = computeBreaks(combined, currentMethod, currentClasses);
+    const colors = YLORRD[currentClasses].slice(0, breaks.length - 1);
+    return { breaks, colors };
+  }
+
+  function applyCompareFilter() {
+    if (!mapA || !mapB) return;
+    const geoCond = geoFilterCondition(geoSearch, geoFilter, currentLevel);
+    const filterA = combineFilters([geoCond, classRangeCond(`LST_${compareYearA}`, currentLstBreaks, activeLstClassIdx)]);
+    const filterB = combineFilters([geoCond, classRangeCond(`LST_${compareYearB}`, currentLstBreaks, activeLstClassIdx)]);
+    for (const suf of ["compare-fill", "compare-line"]) {
+      if (mapA.getLayer(suf)) mapA.setFilter(suf, filterA);
+      if (mapB.getLayer(suf)) mapB.setFilter(suf, filterB);
+    }
+  }
+
+  function compareSourceFor(level) {
+    return level === "sezioni" ? "sezioni-years" : "aggregati-years";
+  }
+
+  function updateCompareLayers() {
+    if (!mapAReady || !mapBReady) return;
+    const sourceId = compareSourceFor(currentLevel);
+    const { breaks, colors } = computeSharedBreaksColors(currentLevel, compareYearA, compareYearB);
+    for (const [m, year] of [[mapA, compareYearA], [mapB, compareYearB]]) {
+      if (m.getLayer("compare-fill")) m.removeLayer("compare-fill");
+      if (m.getLayer("compare-line")) m.removeLayer("compare-line");
+      m.addLayer({
+        id: "compare-fill",
+        type: "fill",
+        source: sourceId,
+        "source-layer": currentLevel,
+        paint: { "fill-color": lstColorExpression(`LST_${year}`, breaks, colors), "fill-opacity": 0.85 },
+      });
+      m.addLayer({
+        id: "compare-line",
+        type: "line",
+        source: sourceId,
+        "source-layer": currentLevel,
+        paint: { "line-color": "#ffffff", "line-width": currentLevel === "sezioni" ? 0.3 : 0.6 },
+      });
+    }
+    currentLstBreaks = breaks;
+    renderLstLegend(breaks, colors, activeLstClassIdx);
+    document.getElementById("lst-year-subtitle").textContent = `LST ${compareYearA} vs ${compareYearB} (°C) — scala condivisa`;
+    document.getElementById("compare-label-a").textContent = compareYearA;
+    document.getElementById("compare-label-b").textContent = compareYearB;
+    applyCompareFilter();
+    applyFillOpacity();
+  }
+
+  function initCompareMaps() {
+    if (mapA) return;
+    const mkStyle = () => ({
+      version: 8,
+      sources: {
+        osm: {
+          type: "raster",
+          tiles: darkTheme ? BASEMAP_TILES.dark : BASEMAP_TILES.light,
+          tileSize: 256,
+          attribution: "© OpenStreetMap contributors © CARTO",
+        },
+      },
+      layers: [{ id: "osm", type: "raster", source: "osm" }],
+    });
+    const mkOpts = (container) => ({
+      container,
+      style: mkStyle(),
+      center: map.getCenter(),
+      zoom: map.getZoom(),
+      minZoom: 10,
+      maxZoom: 17,
+      maxBounds: PALERMO_MAX_BOUNDS,
+      attributionControl: false,
+      dragRotate: false,
+      touchPitch: false,
+      pitchWithRotate: false,
+    });
+    mapA = new maplibregl.Map(mkOpts("map-a"));
+    mapB = new maplibregl.Map(mkOpts("map-b"));
+    mapA.touchZoomRotate.disableRotation();
+    mapB.touchZoomRotate.disableRotation();
+
+    let syncing = false;
+    const linkMaps = (src, dst) => {
+      src.on("move", () => {
+        if (syncing) return;
+        syncing = true;
+        dst.jumpTo({ center: src.getCenter(), zoom: src.getZoom(), bearing: src.getBearing(), pitch: src.getPitch() });
+        syncing = false;
+      });
+    };
+    linkMaps(mapA, mapB);
+    linkMaps(mapB, mapA);
+
+    const addCompareSources = (m) => {
+      m.addSource("sezioni-years", { type: "vector", url: PMTILES_SEZIONI_YEARS });
+      m.addSource("aggregati-years", { type: "vector", url: PMTILES_AGGREGATI_YEARS });
+    };
+    const onClick = (m) => (e) => {
+      const feats = m.queryRenderedFeatures(e.point, { layers: ["compare-fill"] });
+      if (!feats.length) return;
+      const props = feats[0].properties;
+      const year = m === mapA ? compareYearA : compareYearB;
+      showLstInfo(props, currentLevel, year);
+      const valA = props[`LST_${compareYearA}`];
+      const valB = props[`LST_${compareYearB}`];
+      if (valA != null && valB != null) {
+        const delta = valB - valA;
+        const sign = delta > 0 ? "+" : "";
+        document.getElementById("lst-info-box").appendChild(
+          makeRow(`Variazione ${compareYearA}→${compareYearB}`, `${sign}${delta.toFixed(2)} °C`)
+        );
+      }
+    };
+
+    mapA.on("load", () => { addCompareSources(mapA); mapAReady = true; updateCompareLayers(); });
+    mapB.on("load", () => { addCompareSources(mapB); mapBReady = true; updateCompareLayers(); });
+    mapA.on("click", onClick(mapA));
+    mapB.on("click", onClick(mapB));
   }
 
   function updateLstColors() {
@@ -1120,6 +1294,34 @@ async function main() {
     showLstInfo(null);
   }
 
+  function setCompareMode(enabled) {
+    compareMode = enabled;
+    document.getElementById("compare-year-row").classList.toggle("hidden", !enabled);
+    document.getElementById("lst-method-group").classList.toggle("hidden", enabled);
+    document.getElementById("lst-classes-group").classList.toggle("hidden", enabled);
+    document.getElementById("year-timeline").classList.toggle("hidden", enabled || activeOverlay !== "lst-years");
+    document.getElementById("map-compare").classList.toggle("hidden", !enabled);
+    document.getElementById("map").classList.toggle("hidden", enabled);
+    activeLstClassIdx = null;
+    if (enabled) {
+      initCompareMaps();
+      if (mapAReady && mapBReady) {
+        mapA.jumpTo({ center: map.getCenter(), zoom: map.getZoom() });
+        mapB.jumpTo({ center: map.getCenter(), zoom: map.getZoom() });
+      }
+      requestAnimationFrame(() => {
+        if (mapA) mapA.resize();
+        if (mapB) mapB.resize();
+      });
+      updateCompareLayers();
+    } else {
+      if (mapAReady) map.jumpTo({ center: mapA.getCenter(), zoom: mapA.getZoom() });
+      requestAnimationFrame(() => map.resize());
+      updateLstColors();
+    }
+    showLstInfo(null);
+  }
+
   function setOverlay(overlay) {
     activeOverlay = activeOverlay === overlay ? null : overlay;
     document.getElementById("btn-bivariate").classList.toggle("active", activeOverlay === "bivariate");
@@ -1127,7 +1329,7 @@ async function main() {
     document.getElementById("btn-residui").classList.toggle("active", activeOverlay === "residui");
     document.getElementById("biv-toggle").checked = activeOverlay === "bivariate";
     document.getElementById("bivar-variant-btns").classList.toggle("disabled", activeOverlay !== "bivariate");
-    document.getElementById("year-timeline").classList.toggle("hidden", activeOverlay !== "lst-years");
+    document.getElementById("year-timeline").classList.toggle("hidden", activeOverlay !== "lst-years" || compareMode);
     document.getElementById("level-btns").parentElement.classList.toggle("hidden", activeOverlay === "residui");
     updateLayerVisibility();
     if (activeOverlay === "bivariate") { setActiveTab("bivariata"); applyBivFilter(); }
@@ -1177,6 +1379,31 @@ async function main() {
   document.getElementById("btn-lst-years").addEventListener("click", () => setOverlay("lst-years"));
   document.getElementById("btn-residui").addEventListener("click", () => setOverlay("residui"));
 
+  // --- Confronto due anni (Δ LST) ---
+  const compareYearASelect = document.getElementById("compare-year-a");
+  const compareYearBSelect = document.getElementById("compare-year-b");
+  for (const y of YEARS) {
+    const optA = document.createElement("option");
+    optA.value = y;
+    optA.textContent = y;
+    if (y === compareYearA) optA.selected = true;
+    compareYearASelect.appendChild(optA);
+    const optB = document.createElement("option");
+    optB.value = y;
+    optB.textContent = y;
+    if (y === compareYearB) optB.selected = true;
+    compareYearBSelect.appendChild(optB);
+  }
+  document.getElementById("compare-toggle").addEventListener("change", (e) => setCompareMode(e.target.checked));
+  compareYearASelect.addEventListener("change", (e) => {
+    compareYearA = Number(e.target.value);
+    updateCompareLayers();
+  });
+  compareYearBSelect.addEventListener("change", (e) => {
+    compareYearB = Number(e.target.value);
+    updateCompareLayers();
+  });
+
   // --- Timeline anni ---
   const ticksEl = document.getElementById("year-ticks");
   for (const y of YEARS) {
@@ -1222,6 +1449,10 @@ async function main() {
     currentClasses = +e.target.value;
     document.getElementById("lst-classes-value").textContent = currentClasses;
     updateLstColors();
+  });
+  document.getElementById("fill-opacity-slider").addEventListener("input", (e) => {
+    layerOpacity[activeOpacityKey()] = Number(e.target.value);
+    applyFillOpacity();
   });
 
   const zoomSlider = document.getElementById("zoom-slider");
@@ -1296,6 +1527,11 @@ async function main() {
         attribution: "© OpenStreetMap contributors © CARTO",
       });
       map.addLayer({ id: "osm", type: "raster", source: "osm", layout: { visibility: wasVisible || "visible" } }, "satellite");
+    }
+    for (const m of [mapA, mapB]) {
+      if (!m) continue;
+      const src = m.getSource("osm");
+      if (src && typeof src.setTiles === "function") src.setTiles(tiles);
     }
   });
 
@@ -1551,7 +1787,8 @@ async function main() {
       const colors = YLORRD[currentClasses].slice(0, currentLstBreaks.length - 1);
       renderLstLegend(currentLstBreaks, colors, activeLstClassIdx);
     }
-    applyLstFilter();
+    if (compareMode) applyCompareFilter();
+    else applyLstFilter();
   });
 
   document.getElementById("residui-legend").addEventListener("click", (e) => {

@@ -287,6 +287,16 @@ body.panel-closed #panel-toggle { right: 0; }
 }
 .trend-tooltip-year { font-weight: 700; margin-bottom: 2px; }
 .trend-tooltip-city { color: #bbb; }
+
+.map-tooltip {
+  position: absolute; left: 0; top: 0;
+  transform: translate(-50%, -115%);
+  background: var(--c-tooltip-bg); color: var(--c-tooltip-text); font-size: 11px; line-height: 1.4;
+  padding: 5px 9px; border-radius: 5px; white-space: nowrap;
+  pointer-events: none; z-index: 5; display: none;
+}
+.map-tooltip-name { font-weight: 700; }
+.map-tooltip-temp { color: #bbb; }
 .trend-grid line { stroke: var(--c-grid-line); stroke-width: 1; }
 .trend-grid text { font-size: 8px; fill: var(--c-text-faint); }
 .trend-x-lbl { font-size: 8px; fill: var(--c-text-faint); }

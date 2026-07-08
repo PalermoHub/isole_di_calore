@@ -1483,6 +1483,58 @@ async function main() {
     map.on("mouseenter", allClickable, () => (map.getCanvas().style.cursor = "pointer"));
     map.on("mouseleave", allClickable, () => (map.getCanvas().style.cursor = ""));
 
+    const mapTooltipEl = document.getElementById("map-tooltip");
+    function tooltipInfo(level, props, group) {
+      const nameField = LEVEL_NAME_FIELD[level];
+      const name = level === "sezioni" ? `Sezione ${props.sez}` : props[nameField];
+      let tempLabel = "LST";
+      let temp = null;
+      if (group === "bivariate") {
+        tempLabel = BIVAR_VARIANTS[bivariateVariant].labelX;
+        temp = props.val_x != null ? `${Number(props.val_x).toFixed(2)} ${BIVAR_VARIANTS[bivariateVariant].unitX}` : null;
+      } else if (group === "year") {
+        tempLabel = `LST ${currentYear}`;
+        const v = props[`LST_${currentYear}`];
+        temp = v != null ? `${Number(v).toFixed(2)} °C` : null;
+      } else if (group === "residui") {
+        tempLabel = "LST 2025";
+        temp = props.LST_2025 != null ? `${Number(props.LST_2025).toFixed(2)} °C` : null;
+      }
+      return { name, tempLabel, temp };
+    }
+    map.on("mousemove", (e) => {
+      const feats = map.queryRenderedFeatures(e.point, { layers: clickableLayers });
+      const densviaFeats = feats.length ? [] : map.queryRenderedFeatures(e.point, { layers: clickableDensviaLayers });
+      const yearFeats = feats.length || densviaFeats.length ? [] : map.queryRenderedFeatures(e.point, { layers: clickableYearLayers });
+      const residuiFeats = feats.length || densviaFeats.length || yearFeats.length ? [] : map.queryRenderedFeatures(e.point, { layers: clickableResiduiLayers });
+
+      let info = null;
+      if (feats.length) info = tooltipInfo(currentLevel, feats[0].properties, "bivariate");
+      else if (densviaFeats.length) info = tooltipInfo(currentLevel, densviaFeats[0].properties, "bivariate");
+      else if (yearFeats.length) info = tooltipInfo(currentLevel, yearFeats[0].properties, "year");
+      else if (residuiFeats.length) info = tooltipInfo("sezioni", residuiFeats[0].properties, "residui");
+
+      if (!info) {
+        mapTooltipEl.style.display = "none";
+        return;
+      }
+      mapTooltipEl.textContent = "";
+      const nameEl = document.createElement("div");
+      nameEl.className = "map-tooltip-name";
+      nameEl.textContent = info.name ?? "—";
+      mapTooltipEl.appendChild(nameEl);
+      if (info.temp != null) {
+        const tempEl = document.createElement("div");
+        tempEl.className = "map-tooltip-temp";
+        tempEl.textContent = `${info.tempLabel}: ${info.temp}`;
+        mapTooltipEl.appendChild(tempEl);
+      }
+      mapTooltipEl.style.display = "block";
+      mapTooltipEl.style.left = `${e.point.x}px`;
+      mapTooltipEl.style.top = `${e.point.y}px`;
+    });
+    map.on("mouseleave", allClickable, () => (mapTooltipEl.style.display = "none"));
+
     updateLayerVisibility();
     updateLstColors();
     renderResiduiLegend(activeResiduiClassIdx);

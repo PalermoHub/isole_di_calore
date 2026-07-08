@@ -163,7 +163,8 @@ body.panel-closed #map { right: 0; }
 body.panel-closed #panel-toggle { right: 0; }
 
 #panel h1 { font-size: 16px; margin: 0 0 4px; color: var(--c-text); }
-.subtitle { font-size: 12px; color: var(--c-text-secondary); margin: 0 0 12px; }
+.subtitle { font-size: 12px; color: var(--c-text-secondary); margin: 0 0 2px; }
+.subtitle-secondary { font-size: 11px; color: var(--c-text-muted); margin: 0 0 12px; }
 
 .control-group { margin-bottom: 14px; }
 .control-group label { display: block; font-size: 11px; text-transform: uppercase; color: var(--c-text-muted); margin-bottom: 4px; }
